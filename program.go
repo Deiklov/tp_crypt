@@ -2,20 +2,24 @@ package main
 
 import (
 	"bufio"
-	"crypto/sha256"
 	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
+	"sort"
 )
+
+type resp struct {
+	Name         string
+	TicketNumber int
+}
 
 func main() {
 
-	// to save the 'name' option value
 	var fileName = flag.String("file", "program", "The name of input files")
-	var numBilets = flag.Int64("numbilets", 20, "Count of tickets for students")
-	var randSeed = flag.Int64("parameter", 42, "Count of tickets for students")
+	var numBilets = flag.Int("numbilets", 20, "Count of tickets for students")
+	var parameter = flag.Int("parameter", 42, "Parameter for change seed")
 
 	// parse flag's options
 	flag.Parse()
@@ -28,24 +32,45 @@ func main() {
 	defer f.Close()
 
 	sc := bufio.NewScanner(f)
+	arrFIOs := []string{}
 	for sc.Scan() {
-		currStudent := sc.Text()
-		ticketNumber, err := genTicket(currStudent, *randSeed, *numBilets)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println("%s: %d", currStudent, ticketNumber)
+		currFIO := sc.Text()
+		arrFIOs = append(arrFIOs, currFIO)
 	}
 	if err := sc.Err(); err != nil {
 		log.Fatalf("scan file error: %v", err)
 		return
 	}
+	tickets, err := genTickets(arrFIOs, *parameter, *numBilets)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//имя это index
+	for _, v := range tickets {
+		fmt.Printf("%s: %d \n", v.Name, v.TicketNumber)
+	}
 
 }
-func genTicket(studFIO string, seed int64, numTickets int64) (int64, error) {
-	//все имена будут под одной маской
-	hashName := sha256.Sum256([]byte(studFIO))
-	//создали сид для рандома
-	rand.Seed(seed)
-	return 0, nil
+func genTickets(studFIOs []string, seed int, numTickets int) ([]resp, error) {
+	response := make([]resp, len(studFIOs))
+
+	sort.Strings(studFIOs)
+	rand.Seed(int64(seed))
+
+	//генерит массив рандомных чисел из отрезка [1, N] длинной равной числу студентов
+	ticketsArray := func() []int {
+		arr := make([]int, len(studFIOs))
+		for i := 0; i < len(studFIOs); i++ {
+			arr[i] = rand.Intn(numTickets) + 1
+		}
+		return arr
+	}()
+
+	//каждому студенту ставим в соответствие его номер билета
+	for i, v := range ticketsArray {
+		response[i].Name = studFIOs[i]
+		response[i].TicketNumber = v
+	}
+
+	return response, nil
 }
